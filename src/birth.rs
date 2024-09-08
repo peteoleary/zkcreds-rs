@@ -201,4 +201,47 @@ mod test {
         let vk = pk.prepare_verifying_key();
         assert!(verify_birth(&vk, &proof, &birth_checker, &person_com).unwrap());
     }
+
+    #[test]
+    fn test_birth_write() {
+        let mut rng = ark_std::test_rng();
+
+        // We choose that anyone born in 2001 or earlier satisfies our predicate
+        let birth_checker = AgeChecker {
+            threshold_birth_year: Fr::from(2001u16),
+        };
+
+        // Generate the birth circuit's CRS
+        let pk = gen_birth_crs::<_, _, E, _, _, TestComSchemePedersen, TestComSchemePedersenG>(
+            &mut rng,
+            birth_checker.clone(),
+        )
+        .unwrap();
+
+        // First name is UTF-8 encoded, padded at the end with null bytes
+        let person = NameAndBirthYear::new(&mut rng, b"Andrew", 1992);
+
+        // Prove the predicate
+        let proof = prove_birth(&mut rng, &pk, birth_checker.clone(), person.clone()).unwrap();
+
+        use std::io::BufWriter;
+
+        // Write the proof to a file
+        let path = "test_proof.bin";
+        
+        proof.serialize(BufWriter::new(std::fs::File::create(path).unwrap()))
+            .unwrap();
+
+        // Read the proof back in
+        let proof_read = BirthProof::<E, NameAndBirthYear, _, _, _>::deserialize(
+            &mut std::fs::File::open(path).unwrap(),
+        );
+
+        // Ordinarily we wouldn't be able to verify a predicate proof, since it requires knowledge
+        // of the attribute commitment. But this is testing mode and we know this value, so let's
+        // make sure the predicate proof verifies.
+        let person_com = Attrs::<_, TestComSchemePedersen>::commit(&person);
+        let vk = pk.prepare_verifying_key();
+        assert!(verify_birth(&vk, &proof_read.unwrap(), &birth_checker, &person_com).unwrap());
+    }
 }

@@ -249,6 +249,29 @@ where
     pub(crate) _marker: PhantomData<(A, AV, AC, ACG)>,
 }
 
+impl<E, A, AV, AC, ACG> BirthProof<E, A, AV, AC, ACG>
+where
+    E: PairingEngine,
+    A: Attrs<E::Fr, AC>,
+    AV: AttrsVar<E::Fr, A, AC, ACG>,
+    AC: CommitmentScheme,
+    AC::Output: ToConstraintField<E::Fr>,
+    ACG: CommitmentGadget<AC, E::Fr>,
+{
+    pub fn serialize<W: Write>(&self, writer: W) -> Result<(), SerializationError> {
+        self.proof.serialize(writer)
+    }
+
+    pub fn deserialize<R: Read>(reader: R) -> Result<Self, SerializationError> {
+        let proof = Groth16Proof::deserialize(reader)?;
+        Ok(Self {
+            proof,
+            _marker: PhantomData,
+        })
+    }
+}
+
+
 //
 // Merkle tree membership data structures
 //
